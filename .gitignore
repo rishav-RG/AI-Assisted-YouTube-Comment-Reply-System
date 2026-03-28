@@ -1,6 +1,12 @@
+# Virtual environments
 venv/
+.venv/
+
+# Misc
 .env
-venv/
 .poetry/
 token.json
+
+# Python cache
 __pycache__/
+*.pyc

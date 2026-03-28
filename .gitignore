@@ -1,4 +1,6 @@
 venv/
 .env
+venv/
+.poetry/
 token.json
 __pycache__/

@@ -23,6 +23,7 @@ def upsert_comment(session: Session, user_id: int, video_id: int, data: dict):
         user_id=user_id,
         video_id=video_id,
         youtube_comment_id=data["youtube_comment_id"],
+        parent_comment_id=data["parent_comment_id"],
         comment_text=data["comment_text"],
         author=data.get("author")
     )

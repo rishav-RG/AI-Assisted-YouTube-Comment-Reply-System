@@ -1,5 +1,6 @@
-from typing import Optional
-from sqlmodel import SQLModel, Field
+from typing import Optional, List
+from sqlmodel import SQLModel, Field, Relationship
+from sqlalchemy import Column, Text
 from datetime import datetime, timezone
 from enum import Enum
 
@@ -20,8 +21,11 @@ class ReplyStatus(str, Enum):
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email: str = Field(index=True, unique=True)
-
     created_at: datetime = Field(default_factory=utc_now)
+
+    # Relationships
+    auth: Optional["UserYouTubeAuth"] = Relationship(back_populates="user")
+    channels: List["Channel"] = Relationship(back_populates="user")
 
 
 # 🔐 OAuth Tokens (1 per user)
@@ -32,8 +36,10 @@ class UserYouTubeAuth(SQLModel, table=True):
     access_token: str
     refresh_token: str
     expiry: Optional[datetime]
-
     created_at: datetime = Field(default_factory=utc_now)
+
+    # Relationships
+    user: Optional[User] = Relationship(back_populates="auth")
 
 
 # 📺 Channel
@@ -41,14 +47,17 @@ class Channel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
 
-    youtube_channel_id: str = Field(index=True)
+    youtube_channel_id: str = Field(index=True, unique=True)
     channel_name: str
-    description: Optional[str]
+    description: Optional[str] = Field(default=None, sa_column=Column(Text))
 
-    persona: Optional[str]
+    persona: Optional[str] = Field(default=None, sa_column=Column(Text))
     tone: Optional[str]
-
     created_at: datetime = Field(default_factory=utc_now)
+
+    # Relationships
+    user: Optional[User] = Relationship(back_populates="channels")
+    videos: List["Video"] = Relationship(back_populates="channel")
 
 
 # 🎥 Video
@@ -57,13 +66,18 @@ class Video(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     channel_id: int = Field(foreign_key="channel.id", index=True)
 
-    youtube_video_id: str = Field(index=True)
+    youtube_video_id: str = Field(index=True, unique=True)
     title: str
-    description: Optional[str]
-    transcript: Optional[str]
+    description: Optional[str] = Field(default=None, sa_column=Column(Text))
+    
+    # Transcripts can be massive, must be Text
+    transcript: Optional[str] = Field(default=None, sa_column=Column(Text)) 
     tags: Optional[str]
-
     created_at: datetime = Field(default_factory=utc_now)
+
+    # Relationships
+    channel: Optional[Channel] = Relationship(back_populates="videos")
+    comments: List["Comment"] = Relationship(back_populates="video")
 
 
 # 💬 Comment
@@ -72,15 +86,24 @@ class Comment(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     video_id: int = Field(foreign_key="video.id", index=True)
 
-    youtube_comment_id: str = Field(index=True)
-    comment_text: str
-    parent_comment_id: Optional[str]
+    youtube_comment_id: str = Field(index=True, unique=True)
+    
+    # Comments can be long, enforce Text
+    comment_text: str = Field(sa_column=Column(Text))
+    parent_comment_id: Optional[str] = Field(default=None, index=True)
 
     author: Optional[str]
     intent: Optional[str]
     spam_flag: bool = False
-
+    
+    # RAG Queue Flag: True if the AI has already read/replied to this
+    is_processed: bool = False 
+    
     created_at: datetime = Field(default_factory=utc_now)
+
+    # Relationships
+    video: Optional[Video] = Relationship(back_populates="comments")
+    bot_replies: List["Reply"] = Relationship(back_populates="comment")
 
 
 # 🤖 Reply (Given by bot)
@@ -89,9 +112,11 @@ class Reply(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     comment_id: int = Field(foreign_key="comment.id", index=True)
 
-    generated_reply: str
-    edited_reply: Optional[str]
+    generated_reply: str = Field(sa_column=Column(Text))
+    edited_reply: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     status: ReplyStatus = Field(default=ReplyStatus.pending)
-
     created_at: datetime = Field(default_factory=utc_now)
+
+    # Relationships
+    comment: Optional[Comment] = Relationship(back_populates="bot_replies")

@@ -1,7 +1,7 @@
 # app/services/context_aggregator.py
 
-from sqlmodel import Session, select
-from app.db.models import Video
+from sqlmodel import Session
+from app.db.models import Video, Comment
 
 def get_aggregated_context(db: Session, video_id: int) -> dict:
     """
@@ -10,7 +10,8 @@ def get_aggregated_context(db: Session, video_id: int) -> dict:
     This function queries the database for a specific video and gathers:
     1.  Channel Context: The pre-defined persona and tone for the channel.
     2.  Video Context: The video's title, description, and full transcript.
-    3.  Comments Context: The text from all existing comments on that video.
+    3.  Comments Context: The text from all existing comments on that video,
+        structured into parent comments and their corresponding replies.
 
     Args:
         db (Session): The database session to use for querying.
@@ -20,41 +21,52 @@ def get_aggregated_context(db: Session, video_id: int) -> dict:
         dict: A dictionary containing the structured text context, or an empty
               dictionary if the video is not found.
     """
-    
-    # 1. Fetch the video and its related data in one go.
-    # SQLModel's relationships (like video.channel and video.comments)
-    # allow us to access related objects easily.
+  
     video = db.get(Video, video_id)
 
     if not video:
         return {}
 
-    # 2. Extract the different layers of context.
-    
-    # Channel Context from the related Channel object
+    # Channel Context
     channel_context = {
         "persona": video.channel.persona if video.channel else "Default persona",
         "tone": video.channel.tone if video.channel else "Default tone"
     }
 
-    # Video Context directly from the Video object
+    # Video Context
     video_context = {
         "title": video.title,
         "description": video.description,
         "transcript": video.transcript
     }
 
-    # Comments Context by iterating through the related Comment objects
-    comments_context = [
-        comment.comment_text for comment in video.comments
-    ]
+    # --- New Structured Comments Context Logic ---
 
-    # 3. Combine everything into a single, structured dictionary.
-    # This format is clean and easy to pass to the next step in your RAG pipeline.
+    # 1. Separate top-level comments from replies
+    top_level_comments = [c for c in video.comments if not c.parent_comment_id]
+    replies = [c for c in video.comments if c.parent_comment_id]
+
+    # 2. Create a dictionary to easily look up replies by their parent's ID
+    replies_map = {}
+    for reply in replies:
+        if reply.parent_comment_id not in replies_map:
+            replies_map[reply.parent_comment_id] = []
+        replies_map[reply.parent_comment_id].append(reply.comment_text)
+
+    # 3. Build the structured list
+    structured_comments = []
+    for parent in top_level_comments:
+        thread = {
+            "comment": parent.comment_text,
+            "replies": replies_map.get(parent.youtube_comment_id, [])
+        }
+        structured_comments.append(thread)
+
+    # Combine everything into the final dictionary
     aggregated_data = {
         "channel_context": channel_context,
         "video_context": video_context,
-        "comments_context": comments_context
+        "comments_context": structured_comments
     }
 
     return aggregated_data

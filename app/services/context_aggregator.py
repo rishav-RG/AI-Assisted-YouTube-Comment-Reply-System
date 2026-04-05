@@ -51,13 +51,19 @@ def get_aggregated_context(db: Session, video_id: int) -> dict:
     for reply in replies:
         if reply.parent_comment_id not in replies_map:
             replies_map[reply.parent_comment_id] = []
-        replies_map[reply.parent_comment_id].append(reply.comment_text)
+        replies_map[reply.parent_comment_id].append({
+            "text": reply.comment_text,
+            "is_creator": reply.is_creator
+        })
 
     # 3. Build the structured list
     structured_comments = []
     for parent in top_level_comments:
         thread = {
-            "comment": parent.comment_text,
+            "comment": {
+                "text": parent.comment_text,
+                "is_creator": parent.is_creator
+            },
             "replies": replies_map.get(parent.youtube_comment_id, [])
         }
         structured_comments.append(thread)

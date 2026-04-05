@@ -41,7 +41,6 @@ class UserYouTubeAuth(SQLModel, table=True):
     # Relationships
     user: Optional[User] = Relationship(back_populates="auth")
 
-
 # 📺 Channel
 class Channel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -58,7 +57,6 @@ class Channel(SQLModel, table=True):
     # Relationships
     user: Optional[User] = Relationship(back_populates="channels")
     videos: List["Video"] = Relationship(back_populates="channel")
-
 
 # 🎥 Video
 class Video(SQLModel, table=True):
@@ -93,6 +91,8 @@ class Comment(SQLModel, table=True):
     parent_comment_id: Optional[str] = Field(default=None, index=True)
 
     author: Optional[str]
+    author_channel_id: Optional[str] = Field(default=None, index=True) # to check unique id of comment
+    is_creator: bool = False  # for filtering non-creator comments
     intent: Optional[str]
     spam_flag: bool = False
     

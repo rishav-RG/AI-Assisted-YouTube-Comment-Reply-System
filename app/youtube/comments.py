@@ -22,6 +22,7 @@ def fetch_replies(youtube, parent_id: str) -> List[Dict]:
             "youtube_comment_id": r["id"],
             "comment_text": snippet["textDisplay"],
             "author": snippet["authorDisplayName"],
+            "author_channel_id": snippet["authorChannelId"]["value"],
             "parent_comment_id": parent_id
         })
 
@@ -52,6 +53,7 @@ def fetch_comments_with_replies(youtube, video_id: str) -> List[Dict]:
             "youtube_comment_id": parent_id,
             "comment_text": top_snippet["textDisplay"],
             "author": top_snippet["authorDisplayName"],
+            "author_channel_id": top_snippet["authorChannelId"]["value"],
             "parent_comment_id": None
         })
 

@@ -71,4 +71,4 @@ async def sync_youtube(user_id: int, session: Session):
         comments = fetch_comments_with_replies(youtube, v["youtube_video_id"])
 
         for c in comments:
-            upsert_comment(session, user_id, video.id, c)
+            upsert_comment(session, user_id, video.id,channel.youtube_channel_id, c)

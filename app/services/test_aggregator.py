@@ -24,7 +24,7 @@ def run_test():
         print("Database session created successfully.")
 
         # 2. Define the video ID you want to test with
-        video_id_to_test = 1
+        video_id_to_test = 2
         print(f"Fetching context for video_id: {video_id_to_test}...")
 
         # 3. Call the function and get the aggregated data

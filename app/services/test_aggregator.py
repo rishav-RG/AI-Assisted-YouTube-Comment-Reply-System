@@ -32,6 +32,7 @@ def run_test():
 
         # 4. Print the results to the terminal
         if aggregated_data:
+            import json
             print("\n--- ✅ Aggregated Context Found ---")
             # Use json.dumps for pretty printing the dictionary
             print(json.dumps(aggregated_data, indent=2))

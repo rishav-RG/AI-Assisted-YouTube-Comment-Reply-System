@@ -114,9 +114,27 @@ class Reply(SQLModel, table=True):
 
     generated_reply: str = Field(sa_column=Column(Text))
     edited_reply: Optional[str] = Field(default=None, sa_column=Column(Text))
+    model_name: Optional[str] = None
+    prompt_hash: Optional[str] = Field(default=None, index=True)
+    source_chunk_ids: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     status: ReplyStatus = Field(default=ReplyStatus.pending)
     created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     comment: Optional[Comment] = Relationship(back_populates="bot_replies")
+
+
+class RAGChunk(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    video_id: int = Field(foreign_key="video.id", index=True)
+
+    chunk_hash: str = Field(index=True, unique=True)
+    chunk_index: int
+    source_type: str = Field(index=True)
+    source_ref: Optional[str] = Field(default=None, index=True)
+    text: str = Field(sa_column=Column(Text))
+    metadata_json: Optional[str] = Field(default=None, sa_column=Column(Text))
+    is_stale: bool = False
+    created_at: datetime = Field(default_factory=utc_now)

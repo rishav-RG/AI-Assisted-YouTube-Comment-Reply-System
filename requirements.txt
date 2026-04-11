@@ -13,3 +13,10 @@ httpx
 google-api-python-client
 google-auth
 python-dotenv
+langchain
+langchain-cohere
+langchain-community
+langchain-text-splitters
+pinecone
+redis
+tiktoken

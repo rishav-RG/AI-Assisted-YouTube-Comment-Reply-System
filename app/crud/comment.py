@@ -16,9 +16,12 @@ def upsert_comment(session: Session, user_id: int, video_id: int,channel_youtube
     is_creator = (comment_author_id == channel_youtube_id)
 
     if existing:
+        text_changed = existing.comment_text != data["comment_text"]
         existing.comment_text = data["comment_text"]
         existing.author_channel_id = comment_author_id 
         existing.is_creator = is_creator
+        if text_changed:
+            existing.is_processed = False
         session.add(existing)
         session.commit()
         session.refresh(existing)

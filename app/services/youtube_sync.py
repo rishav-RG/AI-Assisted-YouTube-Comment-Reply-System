@@ -12,6 +12,7 @@ from app.youtube.transcript import fetch_transcript
 from app.crud.channel import upsert_channel
 from app.crud.video import upsert_video
 from app.crud.comment import upsert_comment
+from app.services.rag_cache import RAGCache
 
 
 async def sync_youtube(user_id: int, session: Session):
@@ -52,15 +53,21 @@ async def sync_youtube(user_id: int, session: Session):
         select(UserYouTubeAuth).where(UserYouTubeAuth.user_id == user_id)
     ).first()
 
+    if not user_auth:
+        raise ValueError("No YouTube auth found for user")
+
     youtube = await get_youtube_client(user_auth, session)
+    cache = RAGCache()
 
     channel_data = fetch_channel_data(youtube)
     channel = upsert_channel(session, user_id, channel_data)
 
     videos = fetch_videos(youtube, channel_data["youtube_channel_id"])
+    synced_video_ids = []
 
     for v in videos:
         video = upsert_video(session, user_id, channel.id, v)
+        synced_video_ids.append(video.id)
 
         transcript = fetch_transcript(v["youtube_video_id"])
         if transcript:
@@ -72,3 +79,8 @@ async def sync_youtube(user_id: int, session: Session):
 
         for c in comments:
             upsert_comment(session, user_id, video.id,channel.youtube_channel_id, c)
+
+        cache.delete_prefix("aggregate", f"{user_id}:{video.id}")
+        cache.delete_prefix("retrieval", f"{user_id}:{video.id}:")
+
+    return synced_video_ids

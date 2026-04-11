@@ -13,7 +13,8 @@ This project is a FastAPI-based web application designed to help YouTube creator
 
 ### 🚀 RAG Pipeline & AI Integration
 
-- [DONE] **Aggregate Data for RAG**: Combine video title, description, transcript, and comments into a single context.
+- [X] **Aggregate Data for RAG**: Combine video title, description, transcript, and comments into a single context.
+- [X] **ML Pipeline (Intent Classification)
 - [ ] **Integrate Vector Database**: Set up a vector DB (e.g., ChromaDB, FAISS) to store text embeddings.
 - [ ] **Generate Embeddings**: Create a pipeline to generate and store embeddings for the aggregated data.
 - [ ] **Build AI Reply Endpoint**:

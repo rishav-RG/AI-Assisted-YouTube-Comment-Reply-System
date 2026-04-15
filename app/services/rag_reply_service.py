@@ -185,7 +185,7 @@ class RAGReplyService:
             index = self._get_pinecone_index()
             index.upsert(vectors=vectors, namespace=self._namespace(user_id, video_id))
 
-        session.commit()
+        # session.commit()
         self.cache.set_json(
             "aggregate",
             aggregate_cache_key,
@@ -236,7 +236,16 @@ class RAGReplyService:
         self.cache.set_json("retrieval", scoped_cache_key, {"docs": payload})
         return payload
 
-    def _build_prompt(self, context: dict, comment_text: str, retrieved_docs: List[Dict[str, Any]]) -> str:
+    def _build_prompt(
+     self,
+     context: dict,
+     comment_text: str,
+     retrieved_docs: List[Dict[str, Any]],
+     target_comment_id: Optional[int],
+     target_comment_intent: Optional[str],
+     target_comment_spam_flag: bool,
+    ) -> str:
+        
         persona = context.get("channel_context", {}).get("persona") or "Default persona"
         tone = context.get("channel_context", {}).get("tone") or "Helpful and calm"
 
@@ -244,24 +253,30 @@ class RAGReplyService:
 
         prompt = ChatPromptTemplate.from_template(
             """
-You are generating a short reply for a YouTube creator.
+        You are generating a short reply for a YouTube creator.
 
-Channel persona: {persona}
-Preferred tone: {tone}
+        Channel persona: {persona}
+        Preferred tone: {tone}
 
-Policy:
-- Keep reply concise and human.
-- Be polite and de-escalate if the comment is abusive.
-- Never mirror insults.
-- If user asks for help/info, provide practical direction.
-- Output only the reply text.
+        Current comment metadata:
+        - id: {target_comment_id}
+        - intent: {target_comment_intent}
+        - spam_flag: {target_comment_spam_flag}
 
-Comment to reply:
-{comment_text}
+        Policy:
+        - Keep reply concise and human.
+        - Be polite and de-escalate if the comment is abusive.
+        - Never mirror insults.
+        - If user asks for help/info, provide practical direction.
+        - Personalize the reply using current comment intent and spam_flag.
+        - Output only the reply text.
 
-Retrieved context:
-{context_blob}
-""".strip()
+        Comment to reply:
+        {comment_text}
+
+        Retrieved context:
+        {context_blob}
+        """.strip()
         )
 
         return prompt.invoke(
@@ -270,9 +285,12 @@ Retrieved context:
                 "tone": tone,
                 "comment_text": comment_text,
                 "context_blob": context_blob or "No additional context.",
+                "target_comment_id": target_comment_id,
+                "target_comment_intent": target_comment_intent or "unknown",
+                "target_comment_spam_flag": target_comment_spam_flag,
             }
         ).to_string()
-
+    
     def generate_for_comment(
         self,
         session: Session,
@@ -284,7 +302,7 @@ Retrieved context:
         comment = session.get(Comment, comment_id)
         if not comment or comment.user_id != user_id:
             raise ValueError("Comment not found")
-
+    
         if comment.is_creator:
             return {"status": "skipped", "reason": "creator_comment"}
 
@@ -297,7 +315,7 @@ Retrieved context:
         if existing_reply and not force_regenerate:
             comment.is_processed = True
             session.add(comment)
-            session.commit()
+            # session.commit()
             return {"status": "skipped", "reason": "existing_reply"}
 
         if not comment.video_id:
@@ -313,7 +331,15 @@ Retrieved context:
             top_k=top_k or RAG_TOP_K,
         )
 
-        prompt_text = self._build_prompt(context, comment.comment_text, retrieved_docs)
+        prompt_text = self._build_prompt(
+            context=context,
+            comment_text=comment.comment_text,
+            retrieved_docs=retrieved_docs,
+            target_comment_id=comment.id,
+            target_comment_intent=comment.intent,
+            target_comment_spam_flag=comment.spam_flag,
+        )
+        
         prompt_hash = self.cache.stable_hash(
             {
                 "prompt": prompt_text,
@@ -352,7 +378,7 @@ Retrieved context:
 
         comment.is_processed = True
         session.add(comment)
-        session.commit()
+        # session.commit()
 
         return {
             "status": "generated",

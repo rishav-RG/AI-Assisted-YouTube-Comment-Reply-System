@@ -12,7 +12,6 @@ from app.db.models import UserYouTubeAuth
 
 router = APIRouter()
 
-
 @router.get("/auth/youtube")
 def connect_youtube():
     return RedirectResponse(get_oauth_url())

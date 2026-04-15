@@ -5,6 +5,7 @@ from app.api.oauth_routes import router as oauth_router
 from app.api.sync_routes import router as sync_router
 from app.api.rag_routes import router as rag_router
 from app.api.predict_routes import router as predict_router
+from app.api.content_routes import router as content_router
 from app.services.hf_inference_client import hf_client
 import asyncio
 
@@ -24,6 +25,7 @@ app.include_router(oauth_router)
 app.include_router(sync_router)
 app.include_router(rag_router)
 app.include_router(predict_router)
+app.include_router(content_router)
 
 @app.get("/")
 def root():

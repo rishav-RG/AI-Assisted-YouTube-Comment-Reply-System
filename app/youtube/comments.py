@@ -1,5 +1,12 @@
 # For fetching comments from Youtube API
-from typing import List, Dict
+from typing import Dict, List, Optional
+
+
+def _extract_author_channel_id(snippet: dict) -> Optional[str]:
+    channel_meta = snippet.get("authorChannelId")
+    if isinstance(channel_meta, dict):
+        return channel_meta.get("value")
+    return None
 
 
 def fetch_replies(youtube, parent_id: str) -> List[Dict]:
@@ -22,7 +29,7 @@ def fetch_replies(youtube, parent_id: str) -> List[Dict]:
             "youtube_comment_id": r["id"],
             "comment_text": snippet["textDisplay"],
             "author": snippet["authorDisplayName"],
-            "author_channel_id": snippet["authorChannelId"]["value"],
+            "author_channel_id": _extract_author_channel_id(snippet),
             "parent_comment_id": parent_id
         })
 
@@ -53,7 +60,7 @@ def fetch_comments_with_replies(youtube, video_id: str) -> List[Dict]:
             "youtube_comment_id": parent_id,
             "comment_text": top_snippet["textDisplay"],
             "author": top_snippet["authorDisplayName"],
-            "author_channel_id": top_snippet["authorChannelId"]["value"],
+            "author_channel_id": _extract_author_channel_id(top_snippet),
             "parent_comment_id": None
         })
 
@@ -62,3 +69,21 @@ def fetch_comments_with_replies(youtube, video_id: str) -> List[Dict]:
         comments.extend(replies)
     print("comments:", comments)
     return comments
+
+
+def post_reply(youtube, parent_id: str, text: str) -> Dict:
+    """Posts a reply under a YouTube comment thread and returns normalized payload."""
+    response = youtube.comments().insert(
+        part="snippet",
+        body={"snippet": {"parentId": parent_id, "textOriginal": text}},
+    ).execute()
+
+    snippet = response.get("snippet", {})
+
+    return {
+        "youtube_comment_id": response.get("id"),
+        "comment_text": snippet.get("textDisplay") or snippet.get("textOriginal") or text,
+        "author": snippet.get("authorDisplayName"),
+        "author_channel_id": _extract_author_channel_id(snippet),
+        "parent_comment_id": snippet.get("parentId") or parent_id,
+    }

@@ -22,3 +22,13 @@ RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 RAG_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "900"))
 RAG_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "120"))
 RAG_MAX_COMMENTS_CONTEXT = int(os.getenv("RAG_MAX_COMMENTS_CONTEXT", "100"))
+
+HF_INFERENCE_URL = os.getenv(
+	"HF_INFERENCE_URL",
+	"https://rishavgoyal2004-yt-comment-intent-classifier.hf.space/predict",
+)
+HF_TIMEOUT_SECONDS = float(os.getenv("HF_TIMEOUT_SECONDS", "25"))
+HF_MAX_RETRIES = int(os.getenv("HF_MAX_RETRIES", "2"))
+HF_RETRY_BACKOFF_SECONDS = float(os.getenv("HF_RETRY_BACKOFF_SECONDS", "1.0"))
+HF_BATCH_SIZE = int(os.getenv("HF_BATCH_SIZE", "32"))
+HF_MAX_CONCURRENCY = int(os.getenv("HF_MAX_CONCURRENCY", "4"))

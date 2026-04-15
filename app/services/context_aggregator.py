@@ -6,19 +6,21 @@ def get_comments_aggregated(video: Video) -> list[dict]:
     top_level_comments = [c for c in video.comments if not c.parent_comment_id]
     replies = [c for c in video.comments if c.parent_comment_id]
 
-    # 2. Create a dictionary to easily look up replies by their parent's ID
+    # 2. Map replies by parent ID
     replies_map: dict[int, list[dict]] = {}
     for reply in replies:
         replies_map.setdefault(reply.parent_comment_id, []).append({
+            "id": str(reply.youtube_comment_id),  # ✅ ADD THIS
             "text": reply.comment_text,
             "is_creator": reply.is_creator
         })
 
-    # 3. Build the structured list
+    # 3. Build structured output
     structured_comments = []
     for parent in top_level_comments:
         structured_comments.append({
             "comment": {
+                "id": str(parent.youtube_comment_id),  # ✅ ADD THIS
                 "text": parent.comment_text,
                 "is_creator": parent.is_creator
             },
@@ -26,7 +28,6 @@ def get_comments_aggregated(video: Video) -> list[dict]:
         })
 
     return structured_comments
-
 
 def get_video_channel_context(video: Video) -> dict:
     return {
@@ -41,6 +42,36 @@ def get_video_channel_context(video: Video) -> dict:
         }
     }
 
+def get_comments_with_labels(video: Video) -> list[dict]:
+    """Gets comments with their labels and spam flags."""
+    top_level_comments = [c for c in video.comments if not c.parent_comment_id]
+    replies = [c for c in video.comments if c.parent_comment_id]
+
+    replies_map: dict[int, list[dict]] = {}
+    for reply in replies:
+        replies_map.setdefault(reply.parent_comment_id, []).append({
+            "id": str(reply.youtube_comment_id),
+            "text": reply.comment_text,
+            "is_creator": reply.is_creator,
+            "intent": reply.intent,
+            "spam_flag": reply.spam_flag,
+        })
+
+    structured_comments = []
+    for parent in top_level_comments:
+        structured_comments.append({
+            "comment": {
+                "id": str(parent.youtube_comment_id),
+                "text": parent.comment_text,
+                "is_creator": parent.is_creator,
+                "intent": parent.intent,
+                "spam_flag": parent.spam_flag,
+            },
+            "replies": replies_map.get(parent.youtube_comment_id, [])
+        })
+
+    return structured_comments
+
 
 def get_aggregated_context(db: Session, video_id: int) -> dict:
     video = db.get(Video, video_id)
@@ -48,5 +79,6 @@ def get_aggregated_context(db: Session, video_id: int) -> dict:
         return {}
 
     context = get_video_channel_context(video)
-    context["comments_context"] = get_comments_aggregated(video)
+    context["comments_context"] = get_comments_with_labels(video)
     return context
+

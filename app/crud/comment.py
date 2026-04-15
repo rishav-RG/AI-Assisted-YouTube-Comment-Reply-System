@@ -43,3 +43,22 @@ def upsert_comment(session: Session, user_id: int, video_id: int,channel_youtube
     session.refresh(comment)
 
     return comment
+
+# updates comment labels and spam flag in db after getting from ML pipeline
+def update_comment_intent(session: Session, user_id: int, youtube_comment_id: str, intent: str) -> Comment | None:
+    comment = session.exec(
+        select(Comment).where(
+            Comment.youtube_comment_id == youtube_comment_id,
+            Comment.user_id == user_id
+        )
+    ).first()
+
+    if comment:
+        comment.intent = intent
+        if intent.lower() == "spam": # update spam_flag if labeled as "spam"
+            comment.spam_flag = True
+        session.add(comment)
+        session.commit()
+        session.refresh(comment)
+    
+    return comment

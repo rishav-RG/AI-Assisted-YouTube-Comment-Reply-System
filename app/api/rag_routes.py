@@ -1,7 +1,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from app.db.session import get_session
@@ -11,8 +11,16 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 
 
 class GenerateOptions(BaseModel):
-    force_regenerate: bool = False
-    top_k: Optional[int] = None
+    """Options for RAG generation."""
+
+    force_regenerate: bool = Field(
+        default=False,
+        description="If true, forces regeneration even if a recent reply exists.",
+    )
+    top_k: Optional[int] = Field(
+        default=None,
+        description="Number of context chunks to retrieve. Defaults to the system setting.",
+    )
 
 
 @router.post("/generate/video/{video_id}")
@@ -32,6 +40,7 @@ def generate_for_video(
             force_regenerate=payload.force_regenerate,
             top_k=payload.top_k,
         )
+        session.commit()
         return {"status": "ok", "summary": summary}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -56,8 +65,10 @@ def generate_for_comment(
             force_regenerate=payload.force_regenerate,
             top_k=payload.top_k,
         )
+        session.commit()
         return {"status": "ok", "result": result}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    

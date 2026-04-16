@@ -33,11 +33,9 @@ async def get_youtube_client(user_auth, session):
     '''
     if user_auth.expiry and user_auth.expiry.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         token_data = await refresh_access_token(user_auth.refresh_token)
-        print(token_data)
-        print("Token data response:", token_data)  # Debug: see the actual response
         access_token = token_data.get("access_token")
         if not access_token:
-         raise Exception(f"Access token missing. Response: {token_data}")
+            raise Exception("Access token missing from refresh response")
         user_auth.access_token = access_token
         session.add(user_auth)
         session.commit()

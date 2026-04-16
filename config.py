@@ -17,6 +17,38 @@ PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
 REDIS_URL = os.getenv("REDIS_URL")
 REDIS_CACHE_TTL_SECONDS = int(os.getenv("REDIS_CACHE_TTL_SECONDS", "900"))
+SQL_ECHO = os.getenv("SQL_ECHO", "false").strip().lower() in {
+	"1",
+	"true",
+	"yes",
+	"on",
+}
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+DB_POOL_TIMEOUT_SECONDS = int(os.getenv("DB_POOL_TIMEOUT_SECONDS", "30"))
+DB_POOL_RECYCLE_SECONDS = int(os.getenv("DB_POOL_RECYCLE_SECONDS", "300"))
+DB_POOL_USE_LIFO = os.getenv("DB_POOL_USE_LIFO", "true").strip().lower() in {
+	"1",
+	"true",
+	"yes",
+	"on",
+}
+DB_CONNECT_TIMEOUT_SECONDS = int(os.getenv("DB_CONNECT_TIMEOUT_SECONDS", "10"))
+DB_KEEPALIVES = os.getenv("DB_KEEPALIVES", "true").strip().lower() in {
+	"1",
+	"true",
+	"yes",
+	"on",
+}
+DB_KEEPALIVES_IDLE_SECONDS = int(os.getenv("DB_KEEPALIVES_IDLE_SECONDS", "30"))
+DB_KEEPALIVES_INTERVAL_SECONDS = int(
+	os.getenv("DB_KEEPALIVES_INTERVAL_SECONDS", "10")
+)
+DB_KEEPALIVES_COUNT = int(os.getenv("DB_KEEPALIVES_COUNT", "5"))
+DB_OPERATION_MAX_RETRIES = int(os.getenv("DB_OPERATION_MAX_RETRIES", "3"))
+DB_OPERATION_RETRY_BACKOFF_SECONDS = float(
+	os.getenv("DB_OPERATION_RETRY_BACKOFF_SECONDS", "0.75")
+)
 
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 RAG_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "900"))

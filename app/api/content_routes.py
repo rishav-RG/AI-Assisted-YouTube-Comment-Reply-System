@@ -3,10 +3,10 @@ from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import desc
+from sqlalchemy import and_, case, desc, func
 from sqlmodel import Session, select
 
-from app.crud.comment import upsert_comment
+from app.crud.comment import upsert_comment, upsert_comments_batch
 from app.db.models import Channel, Comment, Reply, ReplyStatus, UserYouTubeAuth, Video
 from app.db.session import get_session
 from app.services.comment_labeling_pipeline import CommentLabelingPipeline
@@ -101,50 +101,91 @@ def get_content_overview(session: Session = Depends(get_session)):
         }
 
     videos = session.exec(
-        select(Video)
+        select(
+            Video.id,
+            Video.youtube_video_id,
+            Video.title,
+            Video.description,
+            Video.created_at,
+        )
         .where(Video.user_id == user_id)
         .order_by(desc(Video.created_at))
     ).all()
 
-    video_ids = [video.id for video in videos if video.id is not None]
-    comments = []
+    video_ids = [video_id for video_id, *_ in videos if video_id is not None]
+    comments_count_by_video: Dict[int, dict] = {}
+
     if video_ids:
-        comments = session.exec(
-            select(Comment)
+        comment_stats = session.exec(
+            select(
+                Comment.video_id,
+                func.count(Comment.id).label("comment_count"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Comment.is_creator.is_(False),
+                                Comment.is_processed.is_(False),
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("pending_count"),
+                func.sum(
+                    case((Comment.is_processed.is_(True), 1), else_=0)
+                ).label("processed_count"),
+                func.sum(
+                    case((Comment.is_creator.is_(True), 1), else_=0)
+                ).label("creator_count"),
+            )
             .where(Comment.user_id == user_id, Comment.video_id.in_(video_ids))
+            .group_by(Comment.video_id)
         ).all()
 
-    comments_by_video: Dict[int, List[Comment]] = defaultdict(list)
-    for comment in comments:
-        comments_by_video[comment.video_id].append(comment)
+        comments_count_by_video = {
+            video_id: {
+                "comment_count": int(comment_count or 0),
+                "pending_count": int(pending_count or 0),
+                "processed_count": int(processed_count or 0),
+                "creator_count": int(creator_count or 0),
+            }
+            for video_id, comment_count, pending_count, processed_count, creator_count in comment_stats
+        }
 
     video_payload = []
+    total_comment_count = 0
     total_pending = 0
     total_processed = 0
 
-    for video in videos:
-        related_comments = comments_by_video.get(video.id, [])
-        pending_count = sum(
-            1
-            for item in related_comments
-            if not item.is_creator and not item.is_processed
+    for video_id, youtube_video_id, title, description, created_at in videos:
+        stats = comments_count_by_video.get(
+            video_id,
+            {
+                "comment_count": 0,
+                "pending_count": 0,
+                "processed_count": 0,
+                "creator_count": 0,
+            },
         )
-        processed_count = sum(
-            1 for item in related_comments if item.is_processed
-        )
-        creator_count = sum(1 for item in related_comments if item.is_creator)
 
+        comment_count = stats["comment_count"]
+        pending_count = stats["pending_count"]
+        processed_count = stats["processed_count"]
+        creator_count = stats["creator_count"]
+
+        total_comment_count += comment_count
         total_pending += pending_count
         total_processed += processed_count
 
         video_payload.append(
             {
-                "id": video.id,
-                "youtube_video_id": video.youtube_video_id,
-                "title": video.title,
-                "description": video.description,
-                "created_at": video.created_at,
-                "comment_count": len(related_comments),
+                "id": video_id,
+                "youtube_video_id": youtube_video_id,
+                "title": title,
+                "description": description,
+                "created_at": created_at,
+                "comment_count": comment_count,
                 "pending_comment_count": pending_count,
                 "processed_comment_count": processed_count,
                 "creator_comment_count": creator_count,
@@ -163,7 +204,7 @@ def get_content_overview(session: Session = Depends(get_session)):
         },
         "stats": {
             "video_count": len(videos),
-            "comment_count": len(comments),
+            "comment_count": total_comment_count,
             "pending_comment_count": total_pending,
             "processed_comment_count": total_processed,
         },
@@ -297,13 +338,15 @@ async def sync_video_comments(video_id: int, session: Session = Depends(get_sess
                 inserted += 1
                 existing_ids.add(comment_id)
 
-            upsert_comment(
-                session=session,
-                user_id=user_id,
-                video_id=video_id,
-                channel_youtube_id=channel.youtube_channel_id,
-                data=item,
-            )
+        upsert_comments_batch(
+            session=session,
+            user_id=user_id,
+            video_id=video_id,
+            channel_youtube_id=channel.youtube_channel_id,
+            comments=latest_comments,
+            commit=False,
+        )
+        session.commit()
 
         cache = RAGCache()
         cache.delete_prefix("aggregate", f"{user_id}:{video_id}")

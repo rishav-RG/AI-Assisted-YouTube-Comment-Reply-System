@@ -4,7 +4,13 @@ from sqlmodel import Session, select
 from app.db.models import Channel
 
 
-def upsert_channel(session: Session, user_id: int, data: dict):
+def upsert_channel(
+    session: Session,
+    user_id: int,
+    data: dict,
+    commit: bool = True,
+    refresh: bool = True,
+):
     existing = session.exec(
         select(Channel).where(
             Channel.youtube_channel_id == data["youtube_channel_id"],
@@ -16,8 +22,10 @@ def upsert_channel(session: Session, user_id: int, data: dict):
         existing.channel_name = data["channel_name"]
         existing.description = data["description"]
         session.add(existing)
-        session.commit()
-        session.refresh(existing)
+        if commit:
+            session.commit()
+            if refresh:
+                session.refresh(existing)
         return existing
 
     channel = Channel(
@@ -28,7 +36,11 @@ def upsert_channel(session: Session, user_id: int, data: dict):
     )
 
     session.add(channel)
-    session.commit()
-    session.refresh(channel)
+    if commit:
+        session.commit()
+        if refresh:
+            session.refresh(channel)
+    else:
+        session.flush()
 
     return channel

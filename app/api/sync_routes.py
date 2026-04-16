@@ -1,6 +1,15 @@
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 
+from config import (
+    DB_OPERATION_MAX_RETRIES,
+    DB_OPERATION_RETRY_BACKOFF_SECONDS,
+)
+from app.db.errors import is_transient_db_operational_error
 from app.db.session import get_session
 from app.services.comment_labeling_pipeline import CommentLabelingPipeline
 from app.services.hf_inference_client import HFInferenceError
@@ -8,6 +17,7 @@ from app.services.youtube_sync import sync_youtube
 from app.services.rag_reply_service import RAGReplyService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/youtube/sync")

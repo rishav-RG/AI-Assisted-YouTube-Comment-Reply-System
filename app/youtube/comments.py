@@ -67,7 +67,6 @@ def fetch_comments_with_replies(youtube, video_id: str) -> List[Dict]:
         # Fetch ALL replies separately
         replies = fetch_replies(youtube, parent_id)
         comments.extend(replies)
-    print("comments:", comments)
     return comments
 
 

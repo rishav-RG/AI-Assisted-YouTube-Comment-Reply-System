@@ -11,7 +11,7 @@ from app.youtube.transcript import fetch_transcript
 
 from app.crud.channel import upsert_channel
 from app.crud.video import upsert_video
-from app.crud.comment import upsert_comment
+from app.crud.comment import upsert_comments_batch
 from app.services.rag_cache import RAGCache
 
 
@@ -60,27 +60,59 @@ async def sync_youtube(user_id: int, session: Session):
     cache = RAGCache()
 
     channel_data = fetch_channel_data(youtube)
-    channel = upsert_channel(session, user_id, channel_data)
+    channel = upsert_channel(
+        session,
+        user_id,
+        channel_data,
+        commit=False,
+        refresh=False,
+    )
+    channel_id = channel.id
+    channel_youtube_id = channel.youtube_channel_id
+    if channel_id is None or channel_youtube_id is None:
+        session.rollback()
+        raise ValueError("Failed to resolve channel identifiers during sync")
+    session.commit()
 
     videos = fetch_videos(youtube, channel_data["youtube_channel_id"])
     synced_video_ids = []
 
     for v in videos:
-        video = upsert_video(session, user_id, channel.id, v)
-        synced_video_ids.append(video.id)
+        try:
+            video = upsert_video(
+                session,
+                user_id,
+                channel_id,
+                v,
+                commit=False,
+                refresh=False,
+            )
+            video_id = video.id
+            if video_id is None:
+                raise ValueError("Failed to resolve video identifier during sync")
 
-        transcript = fetch_transcript(v["youtube_video_id"])
-        if transcript:
-            video.transcript = transcript
-            session.add(video)
+            transcript = fetch_transcript(v["youtube_video_id"])
+            if transcript:
+                video.transcript = transcript
+                session.add(video)
+
+            comments = fetch_comments_with_replies(youtube, v["youtube_video_id"])
+            upsert_comments_batch(
+                session=session,
+                user_id=user_id,
+                video_id=video_id,
+                channel_youtube_id=channel_youtube_id,
+                comments=comments,
+                commit=False,
+            )
+
             session.commit()
+            synced_video_ids.append(video_id)
 
-        comments = fetch_comments_with_replies(youtube, v["youtube_video_id"])
-
-        for c in comments:
-            upsert_comment(session, user_id, video.id,channel.youtube_channel_id, c)
-
-        cache.delete_prefix("aggregate", f"{user_id}:{video.id}")
-        cache.delete_prefix("retrieval", f"{user_id}:{video.id}:")
+            cache.delete_prefix("aggregate", f"{user_id}:{video_id}")
+            cache.delete_prefix("retrieval", f"{user_id}:{video_id}:")
+        except Exception:
+            session.rollback()
+            raise
 
     return synced_video_ids

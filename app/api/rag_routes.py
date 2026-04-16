@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
+from app.db.models import Comment
 from app.db.session import get_session
+from app.services.comment_labeling_pipeline import CommentLabelingPipeline
+from app.services.hf_inference_client import HFInferenceError
 from app.services.rag_reply_service import RAGReplyService
 
 router = APIRouter(prefix="/rag", tags=["rag"])
@@ -24,15 +27,22 @@ class GenerateOptions(BaseModel):
 
 
 @router.post("/generate/video/{video_id}")
-def generate_for_video(
+async def generate_for_video(
     video_id: int,
     payload: GenerateOptions,
     session: Session = Depends(get_session),
 ):
     user_id = 1
+    pipeline = CommentLabelingPipeline()
     service = RAGReplyService()
 
     try:
+        await pipeline.run_full_pipeline(
+            session=session,
+            user_id=user_id,
+            video_id=video_id,
+        )
+
         summary = service.generate_for_video(
             session=session,
             user_id=user_id,
@@ -42,6 +52,8 @@ def generate_for_video(
         )
         session.commit()
         return {"status": "ok", "summary": summary}
+    except HFInferenceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
@@ -49,15 +61,26 @@ def generate_for_video(
 
 
 @router.post("/generate/comment/{comment_id}")
-def generate_for_comment(
+async def generate_for_comment(
     comment_id: int,
     payload: GenerateOptions,
     session: Session = Depends(get_session),
 ):
     user_id = 1
+    pipeline = CommentLabelingPipeline()
     service = RAGReplyService()
 
     try:
+        comment = session.get(Comment, comment_id)
+        if not comment or comment.user_id != user_id:
+            raise ValueError("Comment not found")
+
+        await pipeline.run_full_pipeline(
+            session=session,
+            user_id=user_id,
+            video_id=comment.video_id,
+        )
+
         result = service.generate_for_comment(
             session=session,
             user_id=user_id,
@@ -67,6 +90,8 @@ def generate_for_comment(
         )
         session.commit()
         return {"status": "ok", "result": result}
+    except HFInferenceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:

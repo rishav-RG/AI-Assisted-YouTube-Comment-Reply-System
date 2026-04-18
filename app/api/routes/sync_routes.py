@@ -4,6 +4,8 @@ from sqlmodel import Session
 from app.db.session import get_session
 from app.services.youtube_sync import sync_youtube
 from app.services.rag_reply_service import RAGReplyService
+from app.api.deps import get_current_user
+from app.db.models import User
 
 router = APIRouter()
 
@@ -12,10 +14,13 @@ router = APIRouter()
 async def run_sync(
     run_rag: bool = False,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    user_id = 1 # just for testing it is being hardcoded but in future this should be replaced by user_id and which should come from authentication of our application
+    # user_id = 1 # just for testing it is being hardcoded but in future this should be replaced by user_id and which should come from authentication of our application
     # user would signin/singup to our application so we have some user_id for it, we have to use that here
     # For that we have to add an authentication system (JWT/session)
+
+    user_id = current_user.id # now using current user id instead hardcoded
 
     synced_video_ids = await sync_youtube(user_id, session)
     if not run_rag:

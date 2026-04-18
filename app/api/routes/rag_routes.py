@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from app.db.session import get_session
+from app.api.deps import get_current_user
+from app.db.models import User
 from app.services.rag_reply_service import RAGReplyService
 
 router = APIRouter(prefix="/rag", tags=["rag"])
@@ -28,8 +30,11 @@ def generate_for_video(
     video_id: int,
     payload: GenerateOptions,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    user_id = 1
+    # user_id = 1
+
+    user_id = current_user.id # now using current user id instead hardcoded
     service = RAGReplyService()
 
     try:
@@ -53,8 +58,11 @@ def generate_for_comment(
     comment_id: int,
     payload: GenerateOptions,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    user_id = 1
+    # user_id = 1
+    
+    user_id = current_user.id # now using current user id instead hardcoded
     service = RAGReplyService()
 
     try:

@@ -7,7 +7,8 @@ from sqlalchemy import desc
 from sqlmodel import Session, select
 
 from app.crud.comment import upsert_comment
-from app.db.models import Channel, Comment, Reply, ReplyStatus, UserYouTubeAuth, Video
+from app.api.deps import get_current_user
+from app.db.models import Channel, Comment, Reply, ReplyStatus, UserYouTubeAuth, Video, User
 from app.db.session import get_session
 from app.services.comment_labeling_pipeline import CommentLabelingPipeline
 from app.services.hf_inference_client import HFInferenceError
@@ -79,8 +80,10 @@ def _serialize_comment(comment: Comment, latest_reply: Optional[Reply], include_
 
 
 @router.get("/overview")
-def get_content_overview(session: Session = Depends(get_session)):
-    user_id = 1
+def get_content_overview(session: Session = Depends(get_session), current_user: User = Depends(get_current_user),):
+    # user_id = 1 
+
+    user_id = current_user.id # now using current user id instead hardcoded
 
     channel = session.exec(
         select(Channel)
@@ -172,8 +175,10 @@ def get_content_overview(session: Session = Depends(get_session)):
 
 
 @router.get("/videos/{video_id}")
-def get_video_detail(video_id: int, session: Session = Depends(get_session)):
-    user_id = 1
+def get_video_detail(video_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user),):
+    # user_id = 1
+
+    user_id = current_user.id # now using current user id instead hardcoded
 
     video = session.get(Video, video_id)
     if not video or video.user_id != user_id:
@@ -260,8 +265,10 @@ def get_video_detail(video_id: int, session: Session = Depends(get_session)):
 
 
 @router.post("/videos/{video_id}/sync-comments")
-async def sync_video_comments(video_id: int, session: Session = Depends(get_session)):
-    user_id = 1
+async def sync_video_comments(video_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user),):
+    # user_id = 1
+
+    user_id = current_user.id # now using current user id instead hardcoded
 
     video = session.get(Video, video_id)
     if not video or video.user_id != user_id:
@@ -344,8 +351,11 @@ async def post_reply_for_comment(
     comment_id: int,
     payload: PostReplyRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    user_id = 1
+    # user_id = 1
+
+    user_id = current_user.id # now using current user id instead hardcoded
 
     comment = session.get(Comment, comment_id)
     if not comment or comment.user_id != user_id:

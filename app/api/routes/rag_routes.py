@@ -6,6 +6,8 @@ from sqlmodel import Session
 
 from app.db.models import Comment
 from app.db.session import get_session
+from app.api.deps import get_current_user
+from app.db.models import User
 from app.services.comment_labeling_pipeline import CommentLabelingPipeline
 from app.services.hf_inference_client import HFInferenceError
 from app.services.rag_reply_service import RAGReplyService
@@ -31,8 +33,11 @@ async def generate_for_video(
     video_id: int,
     payload: GenerateOptions,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    user_id = 1
+    # user_id = 1
+
+    user_id = current_user.id # now using current user id instead hardcoded
     pipeline = CommentLabelingPipeline()
     service = RAGReplyService()
 
@@ -65,8 +70,11 @@ async def generate_for_comment(
     comment_id: int,
     payload: GenerateOptions,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    user_id = 1
+    # user_id = 1
+    
+    user_id = current_user.id # now using current user id instead hardcoded
     pipeline = CommentLabelingPipeline()
     service = RAGReplyService()
 

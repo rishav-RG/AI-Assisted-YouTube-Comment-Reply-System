@@ -7,6 +7,9 @@ from sqlmodel import Session
 from app.db.session import get_session
 from app.services.comment_labeling_pipeline import CommentLabelingPipeline
 from app.services.hf_inference_client import HFInferenceError, hf_client
+from app.api.deps import get_current_user
+from app.db.models import User
+
 
 router = APIRouter(tags=["ml"])
 
@@ -77,13 +80,15 @@ async def batch_predict(payload: BatchPredictRequest) -> BatchPredictResponse:
 async def full_pipeline(
     payload: FullPipelineRequest,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ) -> FullPipelineResponse:
     """
     This endpoint now ONLY handles comment labeling.
     It fetches comments, gets their intent from the ML model,
     and saves the labels to the database.
     """
-    user_id = 1 # this must be fixed , must come from auth 
+    # user_id = 1 # this must be fixed , must come from auth 
+    user_id = current_user.id # now using current user id instead hardcoded
     pipeline = CommentLabelingPipeline()
 
     try:

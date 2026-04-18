@@ -20,7 +20,11 @@ class ReplyStatus(str, Enum):
 # 👤 User
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(index=True, unique=True)
+
+    email: Optional[str] = Field(default=None, index=True, unique=True)
+
+    clerk_user_id: str = Field(index=True, unique=True)
+
     created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships

@@ -55,8 +55,8 @@ def update_comment_intent(session: Session, user_id: int, youtube_comment_id: st
 
     if comment:
         comment.intent = intent
-        if intent.lower() == "spam": # update spam_flag if labeled as "spam"
-            comment.spam_flag = True
+        # Keep spam_flag aligned with the latest model label.
+        comment.spam_flag = intent.lower() == "spam"
         session.add(comment)
         session.commit()
         session.refresh(comment)

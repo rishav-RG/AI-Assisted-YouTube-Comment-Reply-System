@@ -10,6 +10,8 @@ from app.crud.comment import upsert_comment
 from app.api.deps import get_current_user
 from app.db.models import Channel, Comment, Reply, ReplyStatus, UserYouTubeAuth, Video, User
 from app.db.session import get_session
+from app.services.comment_labeling_pipeline import CommentLabelingPipeline
+from app.services.hf_inference_client import HFInferenceError
 from app.services.rag_cache import RAGCache
 from app.youtube.client import get_youtube_client
 from app.youtube.comments import fetch_comments_with_replies, post_reply
@@ -314,6 +316,13 @@ async def sync_video_comments(video_id: int, session: Session = Depends(get_sess
         cache.delete_prefix("aggregate", f"{user_id}:{video_id}")
         cache.delete_prefix("retrieval", f"{user_id}:{video_id}:")
 
+        pipeline = CommentLabelingPipeline()
+        labeling_result = await pipeline.run_full_pipeline(
+            session=session,
+            user_id=user_id,
+            video_id=video_id,
+        )
+
         refreshed_total = session.exec(
             select(Comment).where(Comment.user_id == user_id, Comment.video_id == video_id)
         ).all()
@@ -326,7 +335,11 @@ async def sync_video_comments(video_id: int, session: Session = Depends(get_sess
             "updated": updated,
             "fetched": len(latest_comments),
             "total_comments": len(refreshed_total),
+            "labeled_count": labeling_result.get("labeled_count", 0),
+            "labeling_status": labeling_result.get("status", "unknown"),
         }
+    except HFInferenceError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except HTTPException:
         raise
     except Exception as exc:

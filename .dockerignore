@@ -1,0 +1,26 @@
+# Python cache and venv
+
+**pycache**/
+_.pyc
+_.pyo
+\*.pyd
+.venv/
+venv/
+
+# Git
+
+.git/
+.gitignore
+
+# OS files
+
+.DS_Store
+
+# Token and env files
+
+.env
+token.json
+
+# Poetry cache
+
+.poetry/
